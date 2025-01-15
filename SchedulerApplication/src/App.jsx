@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import CalendarGrid from './CalendarGrid'
 
 function App() {
 
-  const [events, setEvents] = useState([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+  const [gridTemp, setGridTemp] = useState([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+  const [events, setEvents] = useState([{name: "School Work", start: 15, end: 20, day:5}, {name: "Make Food", start: 15, end: 16, day:4}, {name: "Go To Store", start: 16, end: 17, day:3}])
 
   return (
     <>
@@ -15,13 +17,31 @@ function App() {
           <button>Profile</button>
         </div>
       </header>
-      <div className='flex h-[80svh] m-10'>
-        <div className='w-full h-full grid grid-cols-5 grid-rows-12 border-2'>
-          {events.map((events, index)=>{
-            return(
-              <div key={index} className='flex w-full h-full border-y border-y-stone-900 border-x justify-center items-center'>{events}</div>
-            )
-          })}
+      <div className='flex flex-row w-full h-full'>
+        <div className='ml-2 mt-14 text-center flex flex-col justify-between'>
+            <p>8:00</p>
+            <p>9:00</p>
+            <p>10:00</p>
+            <p>11:00</p>
+            <p>12:00</p>
+            <p>13:00</p>
+            <p>14:00</p>
+            <p>15:00</p>
+            <p>16:00</p>
+            <p>17:00</p>
+            <p>18:00</p>
+            <p>19:00</p>
+            <p>20:00</p>
+        </div>
+        <div className='flex flex-col w-full h-[80svh] mt-10 ml-2 mr-20'>
+          <div className="flex justify-between mx-36">
+            <h1 className='text-xl'>Monday</h1>
+            <h1 className='text-xl'>Tuesday</h1>
+            <h1 className='text-xl'>Wednesday</h1>
+            <h1 className='text-xl'>Thursday</h1>
+            <h1 className='text-xl'>Friday</h1>
+          </div>
+          <CalendarGrid gridTemp={gridTemp} events={events}/>
         </div>
       </div>
 
