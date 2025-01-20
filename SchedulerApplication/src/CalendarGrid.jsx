@@ -1,6 +1,6 @@
 
 
-function CalendarGrid({gridTemp, events, handleView, handleDragStart, handleDragEnd, handleDragAnimation, handleLeave, week, year}) {
+function CalendarGrid({gridTemp, events, handleView, handleDragStart, handleDragEnd, handleDragAnimation, handleLeave, week, year, deletingEvent}) {
 
 
   return (
@@ -15,7 +15,7 @@ function CalendarGrid({gridTemp, events, handleView, handleDragStart, handleDrag
             <div id="draggable" className=""></div>
             {events.filter(e => e.week === week && e.year === year).map((e, index)=>{
                 return(
-                    <div onClick={()=>handleView(e.name, e.start, e.end, e.day, e.description, e.date)} key={index} className={`absolute h-[calc(8.36%_*_${e.end-e.start})] left-[calc(20%_*_${e.day-1})] top-[calc(8.33%_*_${e.start-8})] w-1/5 bg-gradient-to-b from-[${e.colorOne}] to-[${e.colorTwo}] bg-repeat rounded-xl border-2 border-white`}>
+                    <div onClick={()=>handleView(e.name, e.start, e.end, e.day, e.description, e.date)} key={index} className={`absolute h-[calc(8.36%_*_${e.end-e.start})] left-[calc(20%_*_${e.day-1})] top-[calc(8.33%_*_${e.start-8})] w-1/5 bg-gradient-to-b from-[${e.colorOne}] to-[${e.colorTwo}] bg-repeat rounded-xl border-2 border-white ${deletingEvent?"hover:border-rose-500 hover:border-4 cursor-not-allowed":"hover:border-4 cursor-pointer"}`}>
                         <div className="flex flex-col justify-between h-full">
                             <h1 className="text-center text-lg w-full">{e.name}</h1>
                             <div className="flex overflow-hidden justify-between">
