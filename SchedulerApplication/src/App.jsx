@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import CalendarGrid from './CalendarGrid'
-// import {getUserData, addUser, addEventDatabase, deleteEvent} from "./data"
+import {getEvents, addEventDatabase, addNewUser, deleteEventFromDatabase} from "./data"
 
 function App() {
 
   const [gridTemp, setGridTemp] = useState([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-  const [events, setEvents] = useState([])
+  const [events, setEvents] = useState(JSON.parse(window.localStorage.getItem("userEvents"))?JSON.parse(window.localStorage.getItem("userEvents")):[])
   const [addingEvent, setAddingEvent] = useState(false)
   const [viewingEvent, setViewingEvent] = useState(false)
   const [startTimeValue, setStartTimeValue] = useState(8)
@@ -13,8 +13,8 @@ function App() {
   const [description, setDescription] = useState('')
   const [title, setTitle] = useState('')
   const [day, setDay] = useState(1)
-  const [colorOne, setColorOne] = useState("#1520A6")
-  const [colorTwo, setColorTwo] = useState("#750288")
+  const [colorOne, setColorOne] = useState("#6a211d")
+  const [colorTwo, setColorTwo] = useState("#391805")
   const [deletingEvent, setDeletingEvent] = useState(false)
   const [week, setWeek] = useState(1)
   const [date, setDate] = useState("")
@@ -24,22 +24,26 @@ function App() {
   const [currentDate, setCurrentDate] = useState('')
   const [currentTime, setCurrentTime] = useState('')
 
-  const [menuClicked, setMenuClicked] = useState(false)
   const [profileClicked, setProfileClicked] = useState(false)
 
   const [search, setSearch] = useState('')
   const [searching, setSearching] = useState(false)
 
   // login
-  const [user, setUser] = useState('')
-  const [password, setPassword] = useState('')
+  const [user, setUser] = useState(window.localStorage.getItem("user")!=="null"?window.localStorage.getItem("user"):"")
+  const [password, setPassword] = useState(window.localStorage.getItem("password")!=="null"?window.localStorage.getItem("password"):"")
   const [loggedIn, setLoggedIn] = useState(false)
+  const [currentUser, setCurrentUser] = useState(window.localStorage.getItem("currentUser")!=="null"?window.localStorage.getItem("currentUser"):"")
 
-  // useEffect(()=>{
-  //   const newData = data.find((data) => data.user === user && data.password === password)
-  //   if(newData){
-  //     setEvents(newData.events)
-  //   }},[loggedIn])
+  useEffect(()=>{
+    window.localStorage.setItem("userEvents", JSON.stringify(events))
+  },[events])
+
+  useEffect(()=>{
+    window.localStorage.setItem("user", user)
+    window.localStorage.setItem("password", password)
+    window.localStorage.setItem("currentUser", currentUser)
+  },[loggedIn])
 
   useEffect(()=>{
     var date = new Date();
@@ -67,6 +71,12 @@ function App() {
     return () => clearInterval(interval);
   },[])
 
+  const returnNeutral = () =>{
+    setAddingEvent(false)
+    setSearching(false)
+    setProfileClicked(false)
+  }
+
   useEffect(()=>{
     const mondayDay = WeekToDate(year, week)
     
@@ -81,20 +91,15 @@ function App() {
 
   const addEvent = (name, start, end, day, description) =>{
     const newEvent = {name: name, start: start, end: end, day: day, description: description, colorOne: colorOne, colorTwo: colorTwo, week: week, year: year, date: date}
-    // FOR BACKEND
-    // if(user !== "" && password !== ""){
-    //   addEventDatabase(user, password, name, start, end, day, description, date, week, year, colorOne, colorTwo).then((data)=>{
-    //     console.log("Add Event Data:", data)
-    //     if(data){
-    //       setEvents([...events, newEvent])
-    //     }else{
-    //       console.log("Failed to add event")
-    //     }
-    //   })
-    // }else{
-    //   setEvents([...events, newEvent])
-    // }
-    setEvents([...events, newEvent])
+    addEventDatabase(user, password, name, start, end, day, description, colorOne, colorTwo, week, year, date).then((data)=>{
+      if(data){
+        console.log("Added Data: ", data)
+        setEvents([...events, newEvent])
+      }
+    }).catch((err)=>{
+      console.log(err)
+      setEvents([...events, newEvent])
+    })
   }
 
   const handleDescription = (e) =>{
@@ -137,13 +142,18 @@ function App() {
     setStartTimeValue(8)
     setEndTimeValue(20)
     setDay(1)
-    setColorOne("#1520A6")
-    setColorTwo("#750288")
   }
 
-  const handleView = (title, startTimeValue, endTimeValue, day, description, date) =>{
+  const handleView = (title, startTimeValue, endTimeValue, day, description, date, colorOne, colorTwo, week, year) =>{
     if(deletingEvent === true){
-      setEvents(events.filter((event) => event.name !== title))
+      console.log(user, password)
+      deleteEventFromDatabase(user, password, title, startTimeValue, endTimeValue, day, description, colorOne, colorTwo, week, year, date).then((data)=>{
+        if(data){
+          setEvents(events.filter((event) => event.name !== title))
+        }
+      }).catch(err=>{
+        console.log("Deleting ERROr", err)
+      })
       setDeletingEvent(false)
       setViewingEvent(false)
       return
@@ -168,7 +178,6 @@ function App() {
   }
 
   const handleDragStart = (e) =>{
-    setMenuClicked(false)
     setProfileClicked(false)
     const div = document.getElementById('division')
     setIsDragging(true)
@@ -184,21 +193,29 @@ function App() {
   const handleDragAnimation = (e) =>{
     const div = document.getElementById('division')
     const draggable = document.getElementById('draggable')
+    const indicator = document.getElementById('indicator')
     const mouseX = e.pageX - e.target.offsetLeft
     const mouseY = e.pageY - e.target.offsetTop
+    const endingTime = Math.round(mouseY/(div.offsetHeight/12)/0.5)*0.5 + 8
     if(isDragging && e.target.id === 'division'){
       draggable.className = `absolute pointer-events-none w-1/5 border-2 h-[calc(8.33%_*_${Math.round(mouseY/(div.offsetHeight/12)/0.5)*0.5 - (startTimeValue-8)})] left-[calc(20%_*_${day-1})] top-[calc(8.36%_*_${startTimeValue-8})] bg-white rounded-lg opacity-30 -z-50`
+      indicator.className = `absolute pointer-events-none text-center opacity-50 w-1/5 h-[calc(8.33%_*_${0.5})] left-[calc(20%_*_${day-1})] top-[calc(8.36%_*_${startTimeValue-8})]`
+      indicator.innerHTML = `${startTimeValue<Math.round(startTimeValue)?`${Math.round(startTimeValue-0.1)}:30`:`${startTimeValue}:00`} - ${endingTime<Math.round(endingTime)?`${Math.round(endingTime-0.1)}:30`:`${endingTime}:00`}`
     }
     else if(e.target.id === 'division'){
       draggable.className = `absolute pointer-events-none w-1/5 border-2 h-[calc(8.33%_*_0.5)] left-[calc(20%_*_${Math.round(mouseX/(div.offsetWidth/5)+0.5)-1})] top-[calc(8.36%_*_${Math.round(mouseY/(div.offsetHeight/12)/0.5-0.5)*0.5})] rounded-lg bg-white opacity-30 -z-50`
+      indicator.className = "hidden"
     }else{
       draggable.className = `hidden`
+      indicator.className = "hidden"
     }
   }
 
   const handleLeave = (e) =>{
     const draggable = document.getElementById('draggable')
+    const indicator = document.getElementById("indicator")
     draggable.className = `hidden`
+    indicator.className = "hidden"
   }
 
   const handleDragEnd = (e) =>{
@@ -223,7 +240,7 @@ function App() {
   const handleStartTimeInput = () =>{
     const startTime = document.getElementById('startTime')
     if(startTime.className === 'hidden'){
-      startTime.className = 'text-white bg-black border-2 rounded-xl self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+      startTime.className = 'bg-[#181716] focus:outline-none focus:border-rose-400 border-2 rounded-xl border-stone-400 self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
     }else{
       startTime.className = 'hidden'
     }
@@ -232,7 +249,7 @@ function App() {
   const handleEndTimeInput = () =>{
     const endTime = document.getElementById('endTime')
     if(endTime.className === 'hidden'){
-      endTime.className = 'text-white bg-black border-2 rounded-xl self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+      endTime.className = 'bg-[#181716] focus:outline-none focus:border-rose-400 border-2 rounded-xl border-stone-400 self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
     }else{
       endTime.className = 'hidden'
     }
@@ -241,7 +258,7 @@ function App() {
   const handleDateInput = () =>{
     const dateInput = document.getElementById('dateInput')
     if(dateInput.className === 'hidden'){
-      dateInput.className = 'text-white bg-black border-2 rounded-xl self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+      dateInput.className = 'bg-[#181716] focus:outline-none focus:border-rose-400 border-2 rounded-xl border-stone-400 self-center text-center w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
     }else{
       dateInput.className = 'hidden'
     }
@@ -272,40 +289,44 @@ function App() {
   }
 
   const handleLogin = () =>{
-    // FOR BACKEND
-    // getUserData(user, password).then((data)=>{
-    //   console.log("Login Data:", data)
-    //   if(data){
-    //     setEvents(data.events)
-    //     setLoggedIn(true)
-    //     setProfileClicked(false)
-    //   }else{
-    //     addUser(user, password).then((data)=>{
-    //       if(data){
-    //         setEvents(data.events)
-    //         setLoggedIn(true)
-    //         setProfileClicked(false)
-    //       }
-    //     })
-    //   }
-    // })
+    getEvents(user, password).then((data)=>{
+      if(data[0] === null ||  data[0] === undefined ){
+        console.log(user, password)
+        addNewUser(user, password).then(data =>{
+          console.log("New User Data: ",data)
+          setLoggedIn(true)
+          setEvents(data.events)
+          setCurrentUser(user)
+        })
+      }else{
+        console.log(data[0].events)
+        setEvents(data[0].events)
+        setLoggedIn(true)
+        setCurrentUser(user)
+      }
+    }).catch((err)=>{
+      console.log(err)
+    })
   }
 
 
   return (
     <>
-      <header className='h-24 border-b-2 items-center z-100'>
+      <header className='h-24 border-b-2 border-stone-400 items-center z-100'>
         <div className='h-full mx-10 flex justify-between items-center'>
-          <button onClick={()=>setMenuClicked(!menuClicked)} className={`p-2 rounded-lg hover:bg-gray-900 ${menuClicked?"bg-gray-900":""}`}>Menu</button>
-          <button onClick={()=>setDeletingEvent(!deletingEvent)} className={`p-2 rounded-lg hover:bg-rose-500 ${deletingEvent?"bg-rose-500":""}`}>Delete Event</button>
-          <input type="text" value={search} onChange={handleSearch} className='bg-black border-2 border-white rounded-lg w-1/4 text-lg text-center z-51' />
-          <button onClick={()=>setAddingEvent(true)} className={`p-2 rounded-lg hover:bg-green-500 ${addingEvent?"bg-green-500":""}`}>Add Event</button>
-          <button onClick={()=>setProfileClicked(!profileClicked)} className={`p-2 rounded-lg hover:bg-gray-900 ${profileClicked?"bg-gray-900":""}`}>Profile</button>
+          <div className='w-1/4'>
+            <button onClick={()=>setDeletingEvent(!deletingEvent)} className={`p-2 rounded-lg hover:bg-rose-800 hover:text-white ${deletingEvent?"bg-rose-800 text-white":""}`}>Delete Event</button>
+            <button onClick={()=>setAddingEvent(true)} className={`p-2 rounded-lg hover:bg-green-800 hover:text-white ${addingEvent?"bg-green-800 text-white":""}`}>Add Event</button>
+          </div>
+          <input type="text" value={search} onChange={handleSearch} className='bg-[#181716] border-2 focus:outline-none focus:border-rose-400 border-stone-400 rounded-lg w-1/3 text-lg text-center z-51' />
+          <div className='w-1/4 flex justify-end'>
+            <button onClick={()=>setProfileClicked(!profileClicked)} className={`p-2 rounded-lg hover:bg-stone-800 ${profileClicked?"bg-stone-800":""}`}>Profile</button>
+          </div>
           {searching && <div className='absolute top-24 left-0 w-full h-full filter backdrop-blur-lg bg-black bg-opacity-30 z-50'>
             {events.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).map((e, index)=>{
               return(
                 <div className='flex flex-row justify-center w-full'>
-                  <button key={index} onClick={()=>handleSearchClick(e.week)} className='flex flex-row justify-between w-1/4 bg-black h-fit p-2 border-2 rounded-lg m-2 border-white'>
+                  <button key={index} onClick={()=>handleSearchClick(e.week)} className='flex flex-row justify-between w-1/4 bg-[#181716] h-fit p-2 border-2 rounded-lg m-2 border-stone-400'>
                     <p>{e.name}</p>
                     <p>{e.date.split(" ").splice(1).join(" ")}</p>
                   </button>
@@ -316,21 +337,20 @@ function App() {
         </div>
       </header>
       <div className='flex flex-col w-full h-full'>
-        {menuClicked && <div className='absolute top-24 left-0 w-1/4 h-1/4 z-50 bg-black border-r border-b border-white'></div>}
-        {profileClicked && <div className='absolute top-24 right-0 w-1/4 h-1/4 z-50 bg-black border-l border-b border-white'>
+        {profileClicked && <div className='absolute top-24 right-0 w-1/4 h-48 z-50 rounded-bl-xl drop-shadow-md bg-[#181716] border-l-2 border-b-2 border-stone-400'>
           <div className='flex flex-col justify-between w-full h-full p-2'>
-            <h1 className='text-center text-xl h-1/3'>{!loggedIn?"Not Logged In":user}</h1>
-            <div className='h-2/3 flex flex-col justify-between'>
-              <input type="text" placeholder='Username' onChange={(e)=>setUser(e.target.value)} className='w-full h-full my-2 bg-black text-center border-2 rounded-lg'/>
-              <input type="password" placeholder='Password' onChange={(e)=>setPassword(e.target.value)} className='w-full h-full my-2 bg-black text-center border-2 rounded-lg'/>
-              <button onClick={handleLogin} className='text-center text-xl w-full p-2 rounded-lg hover:bg-gray-900'>Login</button>
+            <h1 className='text-center text-xl h-fit'>{currentUser === ""?"Not Logged In":currentUser}</h1>
+            <div className='h-fit flex flex-col justify-between'>
+              <input type="text" placeholder='Username' value={user} onChange={(e)=>setUser(e.target.value)} className='focus:outline-none focus:border-rose-400 w-full h-full my-2 bg-[#181716] text-center border-2 border-stone-400 rounded-lg'/>
+              <input type="password" placeholder='Password' value={password} onChange={(e)=>setPassword(e.target.value)} className='focus:outline-none focus:border-rose-400 w-full h-full my-2 bg-[#181716] text-center border-2 border-stone-400 rounded-lg'/>
+              <button onClick={handleLogin} className='text-center text-xl w-full p-2 rounded-lg hover:bg-stone-800'>Login</button>
             </div>
           </div>
         </div>}
         <div className='flex flex-row justify-between m-2'>
-          <button onClick={()=>handleWeekChange(-1)}>Previous Week</button>
+          <button onClick={()=>handleWeekChange(-1)} className='text-2xl ml-5 p-1 hover:bg-stone-800 w-20 rounded-lg'>◄</button>
           <p>{datesForWeek[0].split(" ").splice(1).join(" ")} - {datesForWeek[4].split(" ").splice(1).join(" ")}</p>
-          <button onClick={()=>handleWeekChange(1)}>Next Week</button>
+          <button onClick={()=>handleWeekChange(1)} className='text-2xl mr-5 p-1 hover:bg-stone-800 w-20 rounded-lg'>►</button>
         </div>
         <div className='flex flex-row w-full h-full'>
           <div className='relative ml-2 mt-5 text-center flex flex-col justify-between'>
@@ -377,7 +397,7 @@ function App() {
         </div>
       </div>
       {viewingEvent && <div className='absolute top-0 left-0 w-full h-full filter backdrop-blur-lg bg-black bg-opacity-30'>
-        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black border-2 rounded-xl p-5 w-2/3 h-2/3 backdrop-filter backdrop-blur-lg'>
+        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#181716] border-2 border-stone-400 rounded-xl p-5 w-2/3 h-2/3 backdrop-filter backdrop-blur-lg'>
           <button className='absolute top-2 right-5 text-xl rounded-lg' onClick={handleExit}>X</button>
           <h1 className='absolute left-5 top-2 text-xl'>{date.split(" ").splice(1).join(" ")}</h1>
           <div className='flex flex-col justify-between w-full h-full '>
@@ -392,7 +412,7 @@ function App() {
       </div>}
       {addingEvent && 
       <div className='absolute top-0 left-0 w-full h-full filter backdrop-blur-lg bg-black bg-opacity-30'>
-        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black border-2 rounded-xl p-5 w-2/3 h-2/3 backdrop-filter backdrop-blur-lg'>
+        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#181716] border-2 rounded-xl border-stone-400 p-5 w-2/3 h-2/3 backdrop-filter backdrop-blur-lg'>
           <button className='absolute top-2 right-5 text-xl rounded-lg border2' onClick={handleExit}>X</button>
           <div className='flex flex-col justify-between w-full h-full '>
             <div className='flex flex-col justify-between w-full'>
@@ -410,17 +430,17 @@ function App() {
               </div>
             </div>
             <div className='flex justify-center w-full'>
-              <input type="text" placeholder='Title' maxLength={20} onChange={handleTitle} className='w-1/2 text-lg bg-black text-white border-2 rounded-xl text-center' />
+              <input type="text" placeholder='Title' maxLength={20} onChange={handleTitle} className='focus:outline-none focus:border-rose-400 w-1/2 text-lg bg-[#181716] border-2 border-stone-400 rounded-xl text-center' />
             </div>
             <div className='flex flex-col justify-center h-1/4 w-full'>
-              <textarea name="description" id="1" onChange={handleDescription} placeholder='Description' className='text-center self-center bg-black text-white border-2 rounded-xl h-full w-2/3'></textarea>
+              <textarea name="description" id="1" onChange={handleDescription} placeholder='Description' className='focus:outline-none focus:border-rose-400 text-center self-center bg-[#181716] border-2 rounded-xl border-stone-400 h-full w-2/3'></textarea>
             </div>
             <div className='flex justify-center w-full'>
-              <input type="color" onChange={handleColorOne} defaultValue={"#1520A6"}/>
-              <input type="color" onChange={handleColorTwo} defaultValue={"#750288"}/>
+              <input type="color" onChange={handleColorOne} defaultValue={"#6a211d"}/>
+              <input type="color" onChange={handleColorTwo} defaultValue={"#391805"}/>
             </div>
             <div className='flex justify-center w-full'>
-              <button className='text-center border-2 rounded-lg w-24 h-10' onClick={handleAdd}>Add</button>
+              <button className='text-center hover:bg-stone-800 rounded-lg w-24 h-10' onClick={handleAdd}>Add</button>
             </div>
             
           </div>
