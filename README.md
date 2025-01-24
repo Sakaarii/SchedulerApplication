@@ -1,4 +1,5 @@
 SCHEDULER APPLICATION - Samuel Sakari Paunonen
+
 A simple scheduler application that has features like drag to add and event search.
 
 The application uses react with javascript on the front end with tailwind as css. 
